@@ -4,7 +4,6 @@ from functools import *
 import numpy as np
 from ortools.sat.python import cp_model
 import math
-
 LANG = 'EN'
 
 if LANG == 'NL':
@@ -15,10 +14,10 @@ if LANG == 'NL':
 		('h',4,2),('i',1,4),('j', 4,2),('k',3,3),('l',3, 3),('m',3,3),('n',1,10),
 		('o',1,6),('p',3,2),('q',10,1),('r',2,5),('s',2, 5),('t',2,5),('u',4,3),
 		('v',4,2),('w',5,2),('x', 8,1),('y',8,1),('z',4, 2),('*',0,2)]
-elif LANG == 'EN':
+elif LANG.startswith('EN'):
 	#word_file = 'CSW21.txt'
 	word_file = 'NWL2023'
-	#word_file = 'NWL20'
+	#word_file = 'NWL2020'
 
 	letters = [
 		('a',1,9),('b',3,2),('c', 3,2),('d',2,4),('e',1,12),('f',4,2),('g',2,3),
@@ -33,7 +32,6 @@ score_arr = np.array([scores[chr(c).lower()] if chr(c).lower() in scores else 0 
 
 hand_size = 7
 emptyhand_bonus = 50
-use_official_dict = True
 
 # scrabble board properties
 N = 15
@@ -73,13 +71,8 @@ letter_multiplier = np.array([
 	[_,_,_,2,_,_,_,_,_,_,_,2,_,_,_],
 ])
 
-black_list = {} #{'quen', 'qtje', 'quis', 'qals', 'quit', 'quia', 'emagazine'}
-
 # valid words, also ordered by some special properties for performance
 words = set(open(word_file).read().lower().split('\n')) - {''}
-if not use_official_dict:
-	words |= {w for w in open('corpus_az3').read().split('\n') if len(w) >= 4 and len(w) <= N}
-
 words |= set(abc)
 
 #words -= black_list
@@ -87,11 +80,42 @@ prefixable = defaultdict(set, {k:set(g) for k,g in groupby(sorted(x for x in wor
 postfixable = defaultdict(set, {k:set(g) for k,g in groupby(sorted(x for x in words if x[:-1] in words), key=lambda x: x[-1])})
 #pillars = defaultdict(set, {k:set(g) for k,g in groupby(sorted([w for w in words if len(w) == N and w[1:-1] in words and (w[1:] or w[:-1] in words)], key=lambda w: w[0]+w[-1]), key=lambda w: w[0]+w[-1])})
 
-# because this is not comptutable quickly enough for really big dicts
-if use_official_dict and False:
-	words_blanks = words | {w[:i] + '*' + w[i+1:] for w in words for i in range(0, len(w))}
-else:
-	words_blanks = words
+words_blanks = words
+def cache_blanks():
+	global words_blanks
+	if len(words_blanks) == len(words):
+		words_blanks |= {w[:i] + '*' + w[i+1:] for w in words for i in range(0, len(w))}
+
+
+def word_to_npcount(w): return np.array([w.count(chr(97+i)) for i in range(26)], dtype=np.int8)
+def word_to_np(w): return np.array([ord(c)-97 for c in w], dtype=np.int8)
+
+def all_positions():
+	positions = []
+	for x,y in product(range(N),range(N)):
+		positions += [(x,y,True, x2-x+1) for x2 in range(x,N)]
+		positions += [(x,y,False,y2-y+1) for y2 in range(y,N)]
+	return positions
+
+def valid_positions(board):
+	'''
+	all valid position on an given board with static tiles
+	'''
+	return [(x,y,h,n) for x,y,h,n in all_positions() if not (
+		(h and x > 0 and not board[y*N+x-1] in ' -') or 
+		(h and x+n < N and not board[y*N+x+n] in ' -') or 
+		(not h and y > 0 and not board[(y-1)*N+x] in ' -') or 
+		(not h and y+n < N and not board[(y+n)*N+x] in ' -') or
+		('-' in [board[(y+i*(1-h))*N+(x+i*h)] for i in range(n)] ))]
+
+def has_sufficient_tiles(text, allowed_blanks = 2, _counts = counts):
+	required_blanks = 0
+	for k,v in Counter(text).items():
+		if k in '* ': continue
+		required_blanks += max(0, v - _counts[k])
+		if required_blanks > allowed_blanks:
+			return False
+	return True
 
 # returns text with minimum amount of letters replaced by blanks
 def sufficient_tiles(text, allowed_blanks = 2):
@@ -116,6 +140,9 @@ def valid_subwords(w):
 			if w[i:j] in words:
 				yield (i, w[i:j])
 
+def get_word_multiplier(x, y, h, n):
+	return int(np.prod(word_multiplier[y,x:x+n] if h else word_multiplier[y:y+n,x]))
+
 # calculates score of isolated word at specific location
 # uppercase letters are assumed to be the added letters
 def word_score(w, x, y, h):
@@ -127,7 +154,7 @@ def word_score(w, x, y, h):
 			ws *= word_multiplier[y+i*(1-h)][x+i*h]
 			ls *= letter_multiplier[y+i*(1-h)][x+i*h]
 		score += scores[c.lower()]*ls
-	return score*ws + (tiles_layed>=hand_size)*emptyhand_bonus
+	return score*ws + (tiles_layed==hand_size)*emptyhand_bonus
 
 def word_score_arr(w, x, y, h):
 	_w = np.frombuffer(w.encode('ascii'), dtype='uint8')
@@ -145,6 +172,7 @@ def word_score_arr(w, x, y, h):
 
 # given many turns, how many points can a word generate WITHOUT assistence?
 def all_word_scores(score, w, x, y, h, backtrack = []):
+	cache_blanks()
 	if w.isupper():
 		yield (score, backtrack)
 	else:

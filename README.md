@@ -22,3 +22,5 @@ And then you can judge can see which ones are solveable as such (in order).
 ```
 cat ./*.CWS23 | sort -k1,1nr -k2,2n | python3 is_single_component.py
 ```
+
+The alternative_encoding.py is here for reference. It does the same as is_single_component.py but is modelled more like a collection of words. Which means you can implement things like move ordering easier. Usually the representation in `is_single_component` is much faster however. 

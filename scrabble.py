@@ -7,7 +7,7 @@ import math
 LANG = 'EN'
 
 if LANG == 'NL':
-	word_file = 'words2024'
+	word_file = 'words/dutch'
 	# Dutch letter counts and scores
 	letters = [
 		('a',1,6),('b',3,2),('c', 5,2),('d',2,5),('e',1,18),('f',4,2),('g',3,3),
@@ -15,9 +15,9 @@ if LANG == 'NL':
 		('o',1,6),('p',3,2),('q',10,1),('r',2,5),('s',2, 5),('t',2,5),('u',4,3),
 		('v',4,2),('w',5,2),('x', 8,1),('y',8,1),('z',4, 2),('*',0,2)]
 elif LANG.startswith('EN'):
-	#word_file = 'CSW21.txt'
-	word_file = 'NWL2023'
-	#word_file = 'NWL2020'
+	#word_file = 'words/CSW21'
+	word_file = 'words/NWL23'
+	#word_file = 'words/NWL20'
 
 	letters = [
 		('a',1,9),('b',3,2),('c', 3,2),('d',2,4),('e',1,12),('f',4,2),('g',2,3),

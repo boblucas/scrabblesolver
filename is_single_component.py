@@ -169,7 +169,6 @@ def create_board(model, counts, fixed_words, board, size=N):
 	lines = []
 	row_cache = {}
 	for d in range(2*size):
-		print(f'Creating row/column {d}/{2*size}')
 		fixed_words_row = defaultdict(set)
 		for (x,y,h,n),words in fixed_words.items():
 			if h == (d < size) and (y if (d < size) else x) == d%size:

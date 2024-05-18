@@ -504,7 +504,7 @@ def main_connectivity_solver():
 				break
 
 			if not is_solved:
-				print(f'STORE {x[0]} {" ".join(x[1])}')
+				print(f'STORE {x[1]} {" ".join(x[2])}')
 				difficult.append((*x[:2], 0))
 
 	print(len(difficult), 'left for deep analysis')
